@@ -6,10 +6,12 @@ env = gym.make("customEnv/GridWorld-v0")
 
 from stable_baselines3 import SAC
 
-model = SAC('MultiInputPolicy', env, verbose=1)
-model.learn(total_timesteps=100000)
+
+model = SAC('CnnPolicy', env, verbose=1, buffer_size=10000)
+
+model.learn(total_timesteps=1000, progress_bar=True)
 
 # Save the model
-model.save("dqn_custom_env")
+model.save("sac_custom_env")
 
 

@@ -16,11 +16,11 @@ class help_functions():
 WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 600
 
-BLACK = 0
-WHITE = 255
-BLUE = 3
-GREEN = 28
-RED = 224
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
 
 
 def preprocess_frame(frame):
@@ -29,8 +29,12 @@ def preprocess_frame(frame):
     return frame
 
 
-def count_occurrences(matrix, n):
-    return np.sum(matrix == n)
+def count_occurrences(matrix, color):
+    # Преобразуем цвет в массив с такой же размерностью, как и у matrix
+    color_array = np.array(color)
+
+    # Сравниваем каждую компоненту (RGB) с соответствующими компонентами цвета
+    return np.sum(np.all(matrix == color_array, axis=-1))
 
 
 class GridWorld(gym.Env):
@@ -54,7 +58,7 @@ class GridWorld(gym.Env):
         self.__agent_location = np.array([world_size // 2, world_size // 2])
         self.__targets = []  #each element here represented as np array with the following structure [x.pos, y.pos, color]
 
-        self.__canvas = pygame.Surface((self.world_size, self.world_size), depth=8)
+        self.__canvas = pygame.Surface((self.world_size, self.world_size))
         self.__canvas.fill(BLACK)
 
         self.__target_found = 0  # сколько нашел букв
@@ -63,12 +67,7 @@ class GridWorld(gym.Env):
         self.last_steps = []  # последние n шагов
         self.n_last_steps = 10
 
-        self.observation_space = spaces.Dict(
-            {
-                "agent": spaces.Box(0, world_size - 1, shape=(84, 84), dtype=int),
-                "targets": spaces.Box(0, world_size - 1, shape=(targets_number, 3), dtype=int)
-            }
-        )
+        self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
 
         self.action_space = spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]),
                                        dtype=np.float32)  # cosX, sinY, (можно добавить power)
@@ -111,7 +110,7 @@ class GridWorld(gym.Env):
         self.__current_angel = 0
         self.last_steps = []
 
-        self.__canvas = pygame.Surface((self.world_size, self.world_size), depth=8)
+        self.__canvas = pygame.Surface((self.world_size, self.world_size))
         self.__canvas.fill(BLACK)
 
         pygame.draw.circle(self.__canvas, WHITE, self.__agent_location, radius=self.__agent_radius)
@@ -119,8 +118,8 @@ class GridWorld(gym.Env):
         #self.__draw_the_head()  # рисуем его направление
 
         for target in self.__targets:
-            print(target[2])
-            pygame.draw.circle(self.__canvas, int(target[2]), target[:2], radius=self.__target_radius)
+
+            pygame.draw.circle(self.__canvas, target[2:], target[:2], radius=self.__target_radius)
 
         observation = self._get_obs()
         info = self._get_info()  # любая инфа
@@ -131,10 +130,7 @@ class GridWorld(gym.Env):
         return observation, info
 
     def _get_obs(self):
-        return {
-            "agent": preprocess_frame(np.array(pygame.surfarray.pixels2d(self.__canvas))),
-            "targets": self.__targets
-        }
+        return preprocess_frame(np.array(pygame.surfarray.pixels3d(self.__canvas)))
 
     def _get_info(self):
         return {
@@ -163,7 +159,7 @@ class GridWorld(gym.Env):
                     self.__targets.append(new_target_location)
                     break
 
-        colors = [i + 4 for i in range(self.__target_number)]
+        colors = [RED, GREEN, BLUE]
         self.__targets = [np.append(pos, color) for pos, color in zip(self.__targets, colors)]
         self.__targets = np.array(self.__targets)  # Ensure it is a numpy array
 
@@ -237,12 +233,12 @@ class GridWorld(gym.Env):
 
         # reward += self.__target_found
 
-        if count_occurrences(np.array(pygame.surfarray.pixels2d(self.__canvas)), GREEN) > self.area_observed:
+        if count_occurrences(np.array(pygame.surfarray.pixels3d(self.__canvas)), GREEN) > self.area_observed:
             reward += 0.5
         else:
             reward -= 0.5
 
-        self.area_observed = count_occurrences(np.array(pygame.surfarray.pixels2d(self.__canvas)), GREEN)
+        self.area_observed = count_occurrences(np.array(pygame.surfarray.pixels3d(self.__canvas)), GREEN)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -284,7 +280,7 @@ class GridWorld(gym.Env):
             pygame.display.update()
             self.clock.tick(self.metadata["render_fps"])
         else:  # rgb_array
-            return np.array(pygame.surfarray.pixels2d(self.__canvas))
+            return np.array(pygame.surfarray.pixels3d(self.__canvas))
 
     def close(self):
         if self.window is not None:
