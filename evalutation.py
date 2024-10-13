@@ -18,7 +18,7 @@ model = PPO.load("sac_custom_env")
 # Evaluate the model
 obs, info = env.reset()
 for _ in range(10000):
-    action = model.predict(obs, deterministic=True)[0]
+    action = model.predict(obs)[0]
     obs, reward, done, truncated, info = env.step(action)
     env.render()
 

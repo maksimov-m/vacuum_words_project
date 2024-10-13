@@ -68,6 +68,7 @@ class GridWorld(gym.Env):
         self.last_steps = []  # последние n шагов
         self.n_last_steps = 10
 
+        self.steps_n = 0
         # self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
         self.observation_space = spaces.Box(0, world_size - 1, shape=(4,), dtype=np.float32)
 
@@ -103,6 +104,7 @@ class GridWorld(gym.Env):
         self.__target_found = 0
         self.area_observed = 0
         self.__current_angel = 0
+        self.steps_n = 0
         self.last_steps = []
 
         self.__canvas = pygame.Surface((self.world_size, self.world_size))
@@ -176,6 +178,10 @@ class GridWorld(gym.Env):
 
         reward = 0
 
+        self.steps_n += 1
+        if self.steps_n % 100 == 0:
+            reward -= 1
+
         if help_functions.is_in_area(new_loc, self.__agent_radius, self.__targets[self.__target_found][:2],
                                      self.__target_radius):
             pygame.draw.circle(self.__canvas, GREEN, self.__targets[self.__target_found][:2],
@@ -184,9 +190,18 @@ class GridWorld(gym.Env):
             #self.__targets = np.delete(self.__targets, 0, axis=0)  # Remove the first target
 
             self.__target_found += 1
-            reward += 10
+
+            reward += 10 * self.__target_found
+
 
             print("Нашел цель!")
+
+
+
+        for target in self.__targets[self.__target_found + 1:]:
+            if help_functions.is_in_area(new_loc, self.__agent_radius, target[:2],
+                                         self.__target_radius):
+                reward -= 3
 
         pygame.draw.circle(self.__canvas, WHITE, self.__agent_location, self.__agent_radius)
 
@@ -201,11 +216,11 @@ class GridWorld(gym.Env):
                 or self.__agent_location[1] == self.__agent_radius
                 or (self.world_size - self.__agent_radius - 1) == self.__agent_location[1]
                 or (self.world_size - self.__agent_radius - 1) == self.__agent_location[0]):
-            reward -= 0.5
+            reward -= 1
 
         # Награждаем если обследует новую территорию, инач штрафуем
         if count_occurrences(np.array(pygame.surfarray.pixels3d(self.__canvas)), GREEN) > self.area_observed:
-            reward += 0.5
+            reward += 2
         else:
             reward -= 0.5
 
