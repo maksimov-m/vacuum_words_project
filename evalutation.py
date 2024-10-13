@@ -13,12 +13,12 @@ from stable_baselines3.common.preprocessing import is_image_space
 env = gym.make("customEnv/GridWorld-v0", render_mode="human")
 
 # Number of episodes to evaluate
-model = SAC.load("sac_custom_env")
+model = PPO.load("sac_custom_env")
 
 # Evaluate the model
 obs, info = env.reset()
 for _ in range(10000):
-    action = model.predict(obs)[0]
+    action = model.predict(obs, deterministic=True)[0]
     obs, reward, done, truncated, info = env.step(action)
     env.render()
 

@@ -21,6 +21,7 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+YELLOW = (255,255,0)
 
 
 def preprocess_frame(frame):
@@ -67,17 +68,11 @@ class GridWorld(gym.Env):
         self.last_steps = []  # последние n шагов
         self.n_last_steps = 10
 
-        self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
+        # self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
+        self.observation_space = spaces.Box(0, world_size - 1, shape=(4,), dtype=np.float32)
 
         self.action_space = spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]),
                                        dtype=np.float32)  # cosX, sinY, (можно добавить power)
-
-        # self._action_to_direction = {
-        #     0: np.array([self.__forward_step * np.cos(np.radians(self.__current_angel)),
-        #                  self.__forward_step * np.sin(np.radians(self.__current_angel))]),  # move forward with respect to angel
-        #     1: 1,
-        #     2: -1,
-        # }
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
 
@@ -118,7 +113,6 @@ class GridWorld(gym.Env):
         #self.__draw_the_head()  # рисуем его направление
 
         for target in self.__targets:
-
             pygame.draw.circle(self.__canvas, target[2:], target[:2], radius=self.__target_radius)
 
         observation = self._get_obs()
@@ -130,7 +124,10 @@ class GridWorld(gym.Env):
         return observation, info
 
     def _get_obs(self):
-        return preprocess_frame(np.array(pygame.surfarray.pixels3d(self.__canvas)))
+        # return preprocess_frame(np.array(pygame.surfarray.pixels3d(self.__canvas)))
+        obs = np.array([*self.__agent_location, *self.__targets[self.__target_found][:2]], dtype=np.float32)
+
+        return obs
 
     def _get_info(self):
         return {
@@ -159,7 +156,7 @@ class GridWorld(gym.Env):
                     self.__targets.append(new_target_location)
                     break
 
-        colors = [RED, GREEN, BLUE]
+        colors = [RED, YELLOW, BLUE]
         self.__targets = [np.append(pos, color) for pos, color in zip(self.__targets, colors)]
         self.__targets = np.array(self.__targets)  # Ensure it is a numpy array
 
@@ -184,7 +181,8 @@ class GridWorld(gym.Env):
             pygame.draw.circle(self.__canvas, GREEN, self.__targets[self.__target_found][:2],
                                self.__target_radius)  # если цель найдена, то закрашиваем в зеленый
 
-            # self.__targets = np.delete(self.__targets, 0, axis=0)  # Remove the first target
+            #self.__targets = np.delete(self.__targets, 0, axis=0)  # Remove the first target
+
             self.__target_found += 1
             reward += 10
 
@@ -194,50 +192,24 @@ class GridWorld(gym.Env):
 
         self.__draw_the_head(action)
 
-        # if action == 0:
-        #     # помечает как посещенное
-        #     pygame.draw.circle(self.__canvas, GREEN, self.__agent_location, self.__agent_radius)
-        #
-        #     # вычисление новой позиции центра агента
-        #     direction = np.array([self.__forward_step * np.cos(np.radians(self.__current_angel)),
-        #                           self.__forward_step * np.sin(np.radians(self.__current_angel))])
-        #
-        #     new_loc = np.clip(self.__agent_location + direction,
-        #                       0 + self.__agent_radius, self.world_size - self.__agent_radius - 1)
-        #
-        #     self.__agent_location = new_loc
-        #
-        #     if help_functions.is_in_area(new_loc, self.__agent_radius, self.__targets[0][:2], self.__target_radius):
-        #         pygame.draw.circle(self.__canvas, GREEN, self.__targets[0][:2], self.__target_radius)
-        #
-        #         self.__targets = np.delete(self.__targets, 0, axis=0)  # Remove the first target
-        #
-        #     pygame.draw.circle(self.__canvas, WHITE, self.__agent_location, self.__agent_radius)
-        #     self.__draw_the_head()
-
-        # else:
-        #     self.__current_angel += self._action_to_direction[action] * self.__rotate_angle
-
+        # Заканчиваем игру, если он нашел все буквы
         done = self.__target_found == self.__target_number
 
 
-
-        # reward = self.__target_number - len(self.__targets) # TODO: реализовать нормальную систему наград
+        # Штрафуем если задел стенку
         if (self.__agent_location[0] == self.__agent_radius
                 or self.__agent_location[1] == self.__agent_radius
                 or (self.world_size - self.__agent_radius - 1) == self.__agent_location[1]
                 or (self.world_size - self.__agent_radius - 1) == self.__agent_location[0]):
             reward -= 0.5
 
-
-
-        # reward += self.__target_found
-
+        # Награждаем если обследует новую территорию, инач штрафуем
         if count_occurrences(np.array(pygame.surfarray.pixels3d(self.__canvas)), GREEN) > self.area_observed:
             reward += 0.5
         else:
             reward -= 0.5
 
+        # Обновили обследуемую территорию
         self.area_observed = count_occurrences(np.array(pygame.surfarray.pixels3d(self.__canvas)), GREEN)
 
         observation = self._get_obs()
@@ -251,13 +223,9 @@ class GridWorld(gym.Env):
         if len(self.last_steps) > self.n_last_steps:
             self.last_steps.pop(0)
 
-        end_game_cond = (
-                    abs(sum([x[0] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][0]) < 0.5 and
-                    abs(sum([x[1] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][1]) < 0.5) and len(self.last_steps) == self.n_last_steps
-
-        end_game = False
-        if end_game_cond:
-            end_game = True
+        end_game = ((abs(sum([x[0] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][0]) < 0.7
+                         and abs(sum([x[1] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][1]) < 0.7)
+                         and len(self.last_steps) == self.n_last_steps)
 
         return observation, reward, done, end_game, info
 

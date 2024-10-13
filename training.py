@@ -4,10 +4,10 @@ import customEnv
 
 env = gym.make("customEnv/GridWorld-v0")
 
-from stable_baselines3 import SAC
+from stable_baselines3 import PPO
 
 
-model = SAC('CnnPolicy', env, verbose=1, buffer_size=10000)
+model = PPO('MlpPolicy', env, verbose=1)
 
 model.learn(total_timesteps=1000, progress_bar=True)
 
