@@ -144,10 +144,10 @@ class GridWorld(gym.Env):
         self.__target_found = 0  # сколько нашел букв
         # self.area_observed = 0  # количество закрашенных пикселей
 
-        # self.last_steps = []  # последние n шагов
-        # self.n_last_steps = 10
+        self.last_steps = []  # последние n шагов
+        self.n_last_steps = 10
 
-        # self.steps_n = 0
+        self.steps_n = 0
         # self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
         self.observation_space = spaces.Box(0, world_size[1] - 1, shape=(8,), dtype=np.float32)
 
@@ -268,7 +268,7 @@ class GridWorld(gym.Env):
                 pygame.draw.circle(self.__canvas, target[2:], target[:2], radius=self.__target_radius)
 
         [pygame.draw.circle(self.__canvas, BLACK, self.bots[i]._agent_location, self.__agent_radius) for i in range(2)]
-        [self.bots[i].update() for i in range(2)]
+        [self.bots[i].update(list([self.__agent_location, self.bots[2 - i - 1]._agent_location])) for i in range(2)]
 
         done = self.__target_found == self.__target_number
 
@@ -292,23 +292,32 @@ class GridWorld(gym.Env):
                             0 + self.__agent_radius, self.world_size[1] - self.__agent_radius - 1)
 
         new_loc = [new_loc_x, new_loc_y]
+
+        reward = 0
+
+        for bot in self.bots:
+            if help_functions.is_in_area(new_loc, self.__agent_radius, bot._agent_location[:2],
+                                         self.__target_radius):
+                new_loc = self.__agent_location
+                reward -= 3
+
         self.__agent_location = new_loc
 
         distance_new = np.linalg.norm(self.__agent_location - self.__targets[self.__target_found][:2])
 
-        reward = 0
+
 
         dif_dist_1 = np.linalg.norm(np.array(self.__agent_location) - np.array(self.bots[0]._agent_location))
         dif_dist_2 = np.linalg.norm(np.array(self.__agent_location) - np.array(self.bots[1]._agent_location))
 
         if dif_dist_1 <= (2 * self.__agent_radius) + 0.3:
-            reward -= 2
+            reward -= 3
 
         if dif_dist_2 <= (2 * self.__agent_radius) + 0.3:
-            reward -= 2
+            reward -= 3
 
         if distance_old > distance_new:
-            reward += 0.5
+            reward += 3
         else:
             reward -= 3
 
@@ -372,15 +381,15 @@ class GridWorld(gym.Env):
             self._render_frame()
 
         # TODO: добавить условие остановки при проблеме
-        # self.last_steps.append(self.__agent_location)
-        # if len(self.last_steps) > self.n_last_steps:
-        #     self.last_steps.pop(0)
+        self.last_steps.append(self.__agent_location)
+        if len(self.last_steps) > self.n_last_steps:
+            self.last_steps.pop(0)
 
-        # end_game = ((abs(sum([x[0] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][0]) < 0.7
-        #                  and abs(sum([x[1] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][1]) < 0.7)
-        #                  and len(self.last_steps) == self.n_last_steps)
+        end_game = ((abs(sum([x[0] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][0]) < 0.7
+                         and abs(sum([x[1] for x in self.last_steps]) / len(self.last_steps) - self.last_steps[0][1]) < 0.7)
+                         and len(self.last_steps) == self.n_last_steps)
 
-        return observation, reward, done, False, info
+        return observation, reward, done, end_game, info
 
     def render(self):
         if self.render_mode == "rgb_array":
