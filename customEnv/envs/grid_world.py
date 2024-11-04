@@ -145,7 +145,7 @@ class GridWorld(gym.Env):
         # self.area_observed = 0  # количество закрашенных пикселей
 
         self.last_steps = []  # последние n шагов
-        self.n_last_steps = 10
+        self.n_last_steps = 100
 
         self.steps_n = 0
         # self.observation_space = spaces.Box(0, 255, shape=(84, 84, 3), dtype=np.uint8)
@@ -319,7 +319,10 @@ class GridWorld(gym.Env):
         if distance_old > distance_new:
             reward += 3
         else:
-            reward -= 3
+            if np.linalg.norm(distance_new - self.__targets[self.__target_found][:2]) < self.__target_radius:
+                reward -= 10
+            else:
+                reward -= 3
 
 
         # self.steps_n += 1
